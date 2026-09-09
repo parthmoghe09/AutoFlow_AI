@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: impossible-pod
+  namespace: default
+spec:
+  containers:
+  - name: dummy
+    image: nginx
+    resources:
+      requests:
+        cpu: "100"

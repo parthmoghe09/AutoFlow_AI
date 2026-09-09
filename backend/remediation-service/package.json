@@ -1,0 +1,16 @@
+{
+  "name": "autoflow-remediation-service",
+  "version": "1.0.0",
+  "description": "Dedicated Kubernetes Remediation Microservice for AutoFlow Swarm",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@kubernetes/client-node": "^1.1.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

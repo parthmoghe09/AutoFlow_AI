@@ -1,0 +1,43 @@
+# =============================================================================
+# stress-test.yaml  (SIMULATION FIXTURE — CPU stress workload)
+# =============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cpu-stress
+  namespace: stress-test
+  labels:
+    app: cpu-stress
+    app.kubernetes.io/part-of: our-system-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cpu-stress
+  template:
+    metadata:
+      labels:
+        app: cpu-stress
+        app.kubernetes.io/part-of: our-system-demo
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      containers:
+        - name: stress
+          image: alexeiled/stress-ng:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - --cpu
+            - "2"
+            - --cpu-load
+            - "80"
+            - --timeout
+            - "0"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "64Mi"
+            limits:
+              cpu: "2"
+              memory: "128Mi"

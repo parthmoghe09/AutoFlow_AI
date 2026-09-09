@@ -1,0 +1,56 @@
+# =============================================================================
+# sim-disk-pressure.yaml  (SIMULATION FIXTURE — do not apply at startup)
+# =============================================================================
+# PURPOSE:
+#   Triggers CriticalDiskSpace alert by filling the node's writable emptyDir
+#   with random data using stress-ng --hdd stressor.
+#   The node_filesystem_avail_bytes alert evaluates the node's root filesystems.
+#   On Minikube (WSL2 Docker), filling a hostPath or emptyDir on the host
+#   is the only path that moves node_filesystem_avail_bytes.
+#
+#   We mount hostPath /tmp/autoflow-sim-disk and write ~40GB of data to push
+#   the minikube VM disk above the 95% threshold (< 5% free).
+#   Applied on-demand by /simulate?type=disk, deleted after remediation.
+#
+# CLEANUP:
+#   kubectl delete pod autoflow-sim-disk -n default
+#   (the emptyDir is automatically cleaned when the pod is deleted)
+# =============================================================================
+apiVersion: v1
+kind: Pod
+metadata:
+  name: autoflow-sim-disk
+  namespace: default
+  labels:
+    app: autoflow-sim
+    sim-type: disk
+    app.kubernetes.io/part-of: autoflow-demo
+spec:
+  restartPolicy: Never
+  volumes:
+    - name: fill-volume
+      emptyDir: {}
+  containers:
+    - name: disk-fill
+      image: busybox:latest
+      imagePullPolicy: IfNotPresent
+      # Write 40GB to emptyDir to exhaust the minikube node disk (usually ~20-60GB total)
+      # Uses dd with 1GB blocks, up to 40 iterations; exits when done or disk is full
+      command:
+        - /bin/sh
+        - -c
+        - |
+          i=0; while [ $i -lt 40 ]; do
+            dd if=/dev/zero of=/filldir/chunk_$i bs=1M count=1024 2>/dev/null || break
+            i=$((i+1)); sleep 1
+          done; sleep 600
+      volumeMounts:
+        - name: fill-volume
+          mountPath: /filldir
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "32Mi"
+        limits:
+          cpu: "200m"
+          memory: "64Mi"

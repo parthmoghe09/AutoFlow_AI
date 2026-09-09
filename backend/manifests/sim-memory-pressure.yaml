@@ -1,0 +1,41 @@
+# =============================================================================
+# sim-memory-pressure.yaml  (SIMULATION FIXTURE — do not apply at startup)
+# =============================================================================
+# PURPOSE:
+#   Triggers NodeHighMemoryUsage alert by allocating a large memory chunk.
+#   Uses stress-ng with --vm stressor targeting ~1.2GB allocation.
+#   Applied on-demand by /simulate?type=memory, deleted after remediation.
+#
+# CLEANUP:
+#   kubectl delete pod autoflow-sim-memory -n default
+# =============================================================================
+apiVersion: v1
+kind: Pod
+metadata:
+  name: autoflow-sim-memory
+  namespace: default
+  labels:
+    app: autoflow-sim
+    sim-type: memory
+    app.kubernetes.io/part-of: autoflow-demo
+spec:
+  restartPolicy: Never
+  containers:
+    - name: mem-stress
+      image: alexeiled/stress-ng:latest
+      imagePullPolicy: IfNotPresent
+      args:
+        - --vm
+        - "1"
+        - --vm-bytes
+        - "1200M"
+        - --vm-keep
+        - --timeout
+        - "300s"
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "100m"
+        limits:
+          memory: "2Gi"
+          cpu: "500m"
