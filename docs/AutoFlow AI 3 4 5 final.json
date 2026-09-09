@@ -1,0 +1,1341 @@
+{
+  "name": "AutoFlow AI 3 4 5 v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "autoflow/action",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "205807e9-7ed1-42f1-ae81-e3839acb6432",
+      "name": "Action Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2912,
+        336
+      ],
+      "webhookId": "autoflow-action-v1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body?.trigger || $json.trigger }}",
+                    "rightValue": "alert",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "da4cf517-38e2-4c1c-bed7-cfb07d57ea09"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Alert"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body?.trigger || $json.trigger }}",
+                    "rightValue": "remediate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "6a88259d-3fb6-4dce-ac74-f0b08e36e085"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Remediate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body?.trigger || $json.trigger }}",
+                    "rightValue": "learning",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "191d3a49-2422-483e-bc8b-5abdaf960b5f"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Learning"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "304c8362-808b-436e-b905-6a2553f795f2",
+      "name": "Action Type Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -2672,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet input = raw.body || raw;\n\nif (typeof input === 'string') {\n  try { input = JSON.parse(input); } catch(e) {}\n}\n\nif (input.body && typeof input.body === 'object') {\n  input = input.body;\n}\n\nif (!input.service_name && raw.body?.service_name) {\n  input = { ...input, ...raw.body };\n}\n\nreturn { json: input };"
+      },
+      "id": "7c49bd6e-5acd-4bb8-8a71-9e211fe7f6ea",
+      "name": "Alert — Receive Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2432,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst scorePercent = Math.round(d.consensus_score * 100);\nconst emoji = d.consensus_score >= 0.5 ? '🔴' : '🟡';\n\nconst agentLine = (name, agent) => `${name}: score=${agent?.score ?? 'N/A'} | action=${agent?.recommended_action ?? 'N/A'} | reason: ${agent?.reasoning ?? 'N/A'}`;\n\nconst body = [\n  `${emoji} AutoFlow Alert — Action May Be Needed`,\n  ``,\n  `Service: ${d.service_name} in namespace: ${d.namespace}`,\n  `Metric: ${d.metric_type} = ${d.metric_value}`,\n  `Consensus Score: ${scorePercent}% (threshold for auto-fix is 60%)`,\n  `Decision: ALERT — monitoring, no auto-remediation yet`,\n  ``,\n  `Agent Analysis:`,\n  agentLine('Anomaly Agent', d.agents?.anomaly),\n  agentLine('Risk Agent   ', d.agents?.risk),\n  agentLine('SLA Agent    ', d.agents?.sla),\n  agentLine('Context Agent', d.agents?.context),\n  ``,\n  `Decision ID: ${d.decision_id}`,\n  `Time: ${new Date().toISOString()}`\n].join('\\n');\n\nreturn { json: { ...d, email_body: body } };"
+      },
+      "id": "72ac76f4-e608-4797-bbc8-7cf69ff50870",
+      "name": "Format Alert Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2192,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "deshpandedevang166@gmail.com",
+        "subject": "=🔴 AutoFlow Alert — {{ $json.service_name }} | Score: {{ Math.round($json.consensus_score * 100) }}%",
+        "emailType": "text",
+        "message": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "id": "9c652174-42f7-4ba0-937b-5905f9f0d9dc",
+      "name": "Send Alert Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -1952,
+        16
+      ],
+      "webhookId": "8cd2cd1b-aacc-4809-a109-03ae718e949a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "jJw9Z3gH29J5NG5c",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE autoflow_events SET status = 'alerted' WHERE event_id = '{{ $('Alert — Receive Decision').first().json.event_id }}';",
+        "options": {}
+      },
+      "id": "0d1b0b3a-4750-4f07-8956-436a2e40b385",
+      "name": "Update Status to Alerted",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -1712,
+        16
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "gJ51Uz7d9gFG1Tzh",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'alert_sent', decision_id: $('Alert — Receive Decision').first().json.decision_id }) }}",
+        "options": {}
+      },
+      "id": "6dfb77f3-f9ce-413a-8588-ddd23045aa22",
+      "name": "Alert — Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1472,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet input = raw.body || raw;\n\n// Handle case where body is a JSON string (double-serialized)\nif (typeof input === 'string') {\n  try { input = JSON.parse(input); } catch(e) { /* keep as-is */ }\n}\n\n// Handle case where body is nested one more level\nif (input.body && typeof input.body === 'object') {\n  input = input.body;\n}\n\n// Safety: if trigger exists but service_name doesn't, \n// try extracting from the raw webhook payload\nif (!input.service_name && raw.body?.service_name) {\n  input = { ...input, ...raw.body };\n}\n\nreturn { json: input };"
+      },
+      "id": "7be04d91-30f4-485c-8b46-8f9a9bb04788",
+      "name": "Remediate — Receive Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2432,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json;\nconst action = input.remediation_action || 'restart_pod';\nconst validActions = ['restart_pod', 'scale_service', 'reroute_traffic', 'cleanup_disk', 'reschedule_pod', 'drain_node'];\nconst resolvedAction = validActions.includes(action) ? action : 'restart_pod';\nreturn { json: { ...input, resolved_action: resolvedAction } };"
+      },
+      "id": "6ac73d55-1b52-47fa-83b2-3f606168b827",
+      "name": "Resolve Action Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2192,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.resolved_action }}",
+                    "rightValue": "restart_pod",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "26e2fa1f-0696-4836-9292-bd66d2e60a9e"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "RestartPod"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.resolved_action }}",
+                    "rightValue": "scale_service",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "98b4dcaf-74a5-4ce7-83ab-045053d35994"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ScaleService"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.resolved_action }}",
+                    "rightValue": "reroute_traffic",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "d410b011-65c3-49c3-a1ce-92bb1f868918"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "RerouteTraffic"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.resolved_action }}",
+                    "rightValue": "cleanup_disk",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "v2-cleanup-disk-001"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CleanupDisk"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.resolved_action }}",
+                    "rightValue": "reschedule_pod",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "v2-reschedule-pod-001"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ReschedulePod"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.resolved_action }}",
+                    "rightValue": "drain_node",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "v2-drain-node-001"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DrainNode"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5bca9cf0-17c8-4a29-9bb1-8323be984a6d",
+      "name": "K8s Action Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -1952,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3002/remediate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJuOG4td29ya2Zsb3ciLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODgzMjQ3MTgsImV4cCI6NDk0NDA4NDcxOH0.j_XztGy_zNj_DP3cPZ1aIvPlqQH19g0G9sZQCYeh_ZI"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n                event_id: $('Remediate — Receive Decision').first().json.event_id,\n                decision_id: $('Remediate — Receive Decision').first().json.decision_id,\n                action_id: 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7),\n                action_type: 'restart_pod',\n                service_name: $('Remediate — Receive Decision').first().json.service_name || 'demo-app',\n                namespace: $('Remediate — Receive Decision').first().json.namespace || 'default'\n              }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "efc799f9-f0ee-4ec0-b348-50dfc6cb0344",
+      "name": "Simulate Restart Pod",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1728,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3002/remediate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJuOG4td29ya2Zsb3ciLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODgzMjQ3MTgsImV4cCI6NDk0NDA4NDcxOH0.j_XztGy_zNj_DP3cPZ1aIvPlqQH19g0G9sZQCYeh_ZI"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n                event_id: $('Remediate — Receive Decision').first().json.event_id,\n                decision_id: $('Remediate — Receive Decision').first().json.decision_id,\n                action_id: 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7),\n                action_type: 'scale_service',\n                service_name: $('Remediate — Receive Decision').first().json.service_name || 'demo-app',\n                namespace: $('Remediate — Receive Decision').first().json.namespace || 'default',\n                parameters: { target_replicas: 3 }\n              }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "ba250e68-0331-4975-882b-b7cff44862c9",
+      "name": "Simulate Scale Service",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1712,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Remediate — Receive Decision').first().json;\nreturn {\n  json: {\n    ...d,\n    action_simulated: true,\n    simulation_note: `SIMULATED reroute_traffic: would update Ingress to redirect traffic away from ${d.service_name} in ${d.namespace}. Manual ingress update required in production.`,\n    k8s_command: `kubectl annotate ingress ${d.service_name}-ingress nginx.ingress.kubernetes.io/service-upstream=true -n ${d.namespace}`\n  }\n};"
+      },
+      "id": "92cd4083-2f66-41f1-a133-b157f7c79b0c",
+      "name": "Simulate Reroute Traffic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1712,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst base = $('Remediate — Receive Decision').first().json;\n\nconst action_id = resp.action_id || ('act_' + Date.now() + '_' + Math.random().toString(36).substr(2,7));\nconst action_status = resp.action_status || (resp.success ? 'success' : 'failed');\nconst action_taken = resp.action_type || base.resolved_action || 'restart_pod';\n\nreturn {\n  json: {\n    ...base,\n    action_id,\n    action_taken,\n    action_status,\n    service_name: base.service_name || resp.service_name || 'demo-app',\n    namespace: base.namespace || resp.namespace || 'default',\n    k8s_execution: resp.k8s_execution || null,\n    action_executed_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "e6f309e8-1b17-41c9-86a3-a759388a1a9a",
+      "name": "Merge Action Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1472,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO autoflow_actions (action_id, decision_id, action_type, action_status, executed_at) VALUES ('{{ $json.action_id }}', '{{ $json.decision_id }}', '{{ $json.action_taken }}', 'executing', '{{ $json.action_executed_at }}') ON CONFLICT (action_id) DO NOTHING;",
+        "options": {}
+      },
+      "id": "e6fef1b7-742a-4f51-aac8-74ef4abea499",
+      "name": "Save Action to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -1232,
+        336
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "gJ51Uz7d9gFG1Tzh",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'remediation_complete', action_taken: $('Merge Action Paths').first().json.action_taken, action_id: $('Merge Action Paths').first().json.action_id, simulated: true }) }}",
+        "options": {}
+      },
+      "id": "7f665ca0-9e57-4c14-8558-95ca7bc9c1a7",
+      "name": "Remediate — Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "id": "d56983dd-9950-4a7d-b8d8-e4c61e286ec0",
+      "name": "Wait 10s for Recovery",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -992,
+        336
+      ],
+      "webhookId": "5725c77b-8616-4d5c-8fc5-4c7e7bb4a85d"
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $('Remediate — Receive Decision').first().json;\nconst actionData = $('Merge Action Paths').first().json;\n\nconst thresholds = {\n  cpu_usage: 85,\n  memory_usage: 90,\n  error_rate: 5,\n  latency_ms: 2000,\n  disk_usage: 95,\n  // v2 EXTENSION: New infrastructure metric thresholds\n  disk_space_free_percent: 10,\n  pod_scheduling: 0.5\n};\nconst threshold = thresholds[original.metric_type] || 80;\n\n// v2: Different recovery logic for infrastructure alerts\nlet simulatedCurrentValue;\nlet recovered;\n\nif (original.metric_type === 'pod_scheduling') {\n  // Pod scheduling: recovery means pod is now scheduled (value goes to 0)\n  const rescheduleSuccess = Math.random() > 0.15; // 85% success rate\n  simulatedCurrentValue = rescheduleSuccess ? 0 : 1;\n  recovered = simulatedCurrentValue === 0;\n} else if (original.metric_type === 'disk_space_free_percent') {\n  // Disk space: recovery means free space is now above threshold\n  const cleanupSuccess = Math.random() > 0.1; // 90% success rate\n  simulatedCurrentValue = cleanupSuccess ? \n    threshold + (Math.random() * 20 + 5) :  // Cleaned up: 15-35% free\n    original.metric_value * (0.9 + Math.random() * 0.15); // Still low\n  recovered = simulatedCurrentValue >= threshold;\n} else {\n  const recoveryThreshold = threshold * 0.8;\n  if (actionData.action_taken === 'reroute_traffic') {\n    simulatedCurrentValue = Math.random() > 0.2 ? recoveryThreshold * 0.7 : threshold * 1.1;\n  } else if (actionData.action_taken === 'drain_node') {\n    simulatedCurrentValue = Math.random() > 0.1 ? recoveryThreshold * 0.5 : threshold * 1.05;\n  } else {\n    simulatedCurrentValue = recoveryThreshold * 0.6 + (Math.random() * 10);\n  }\n  recovered = simulatedCurrentValue < (threshold * 0.8);\n}\n\nconst detectedAt = new Date(original.timestamp || actionData.action_executed_at).getTime();\nconst resolvedAt = Date.now();\nconst mttrSeconds = Math.round((resolvedAt - detectedAt) / 1000);\n\nreturn {\n  json: {\n    ...original,\n    action_id: actionData.action_id,\n    action_taken: actionData.action_taken,\n    recovery_metric_value: Math.round(simulatedCurrentValue * 100) / 100,\n    recovery_threshold: original.metric_type === 'pod_scheduling' ? 0 : (original.metric_type === 'disk_space_free_percent' ? threshold : threshold * 0.8),\n    recovered,\n    mttr_seconds: mttrSeconds,\n    agents: original.agents\n  }\n};"
+      },
+      "id": "2dfbfc46-27e7-4681-afab-be376aa11a14",
+      "name": "Evaluate Recovery",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -752,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "recovery-check",
+              "leftValue": "={{ $json.recovered }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "77399a73-a53d-434b-9184-587773e265a0",
+      "name": "Did It Recover?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE autoflow_actions SET action_status = 'success', outcome = 'recovered', recovery_metric_value = {{ $json.recovery_metric_value }}, mttr_seconds = {{ $json.mttr_seconds }}, resolved_at = NOW() WHERE action_id = '{{ $json.action_id }}'; UPDATE autoflow_events SET status = 'resolved' WHERE event_id = '{{ $json.event_id }}';",
+        "options": {}
+      },
+      "id": "331be49f-7c77-48f2-bdde-16014456199b",
+      "name": "Save Success Outcome",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -272,
+        96
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "gJ51Uz7d9gFG1Tzh",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE autoflow_actions SET action_status = 'failed', outcome = 'not_recovered', recovery_metric_value = {{ $json.recovery_metric_value }}, resolved_at = NOW() WHERE action_id = '{{ $json.action_id }}'; UPDATE autoflow_events SET status = 'escalated' WHERE event_id = '{{ $json.event_id }}';",
+        "options": {}
+      },
+      "id": "a96154ef-4f61-4206-adad-3ac2722d6a73",
+      "name": "Save Failure Outcome",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -272,
+        576
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "gJ51Uz7d9gFG1Tzh",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst body = [\n  `🚨 AutoFlow ESCALATION — Auto-remediation FAILED`,\n  ``,\n  `Service: ${d.service_name} in ${d.namespace}`,\n  `Action Attempted: ${d.action_taken}`,\n  `Current Metric Value after action: ${d.recovery_metric_value}`,\n  `Recovery Threshold Was: ${d.recovery_threshold}`,\n  ``,\n  `Service did NOT recover after automated fix. Manual intervention required.`,\n  ``,\n  `Decision ID: ${d.decision_id}`,\n  `Action ID: ${d.action_id}`,\n  `Time: ${new Date().toISOString()}`\n].join('\\n');\nreturn { json: { ...d, escalation_email_body: body } };"
+      },
+      "id": "d67d1cb2-af1c-48ea-8bf0-ccbdc02d4a1b",
+      "name": "Format Escalation Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "deshpandedevang166@gmail.com",
+        "subject": "=🚨 AutoFlow ESCALATION — {{ $json.service_name }} did NOT recover | Manual action needed",
+        "emailType": "text",
+        "message": "={{ $json.escalation_email_body }}",
+        "options": {}
+      },
+      "id": "91eda648-bd7e-441b-8b79-9c7ce64cfa8d",
+      "name": "Escalate via Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        208,
+        576
+      ],
+      "webhookId": "5b2447c2-ee07-404c-87db-c347a7114e67",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "jJw9Z3gH29J5NG5c",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/autoflow/action",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ trigger: 'learning', recovered: true, event_id: $('Evaluate Recovery').first().json.event_id, decision_id: $('Evaluate Recovery').first().json.decision_id, action_id: $('Evaluate Recovery').first().json.action_id, agents: $('Evaluate Recovery').first().json.agents }) }}",
+        "options": {}
+      },
+      "id": "bbd89f34-148d-446e-bca2-7d700ba4cd0c",
+      "name": "Trigger Learning — Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -32,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/autoflow/action",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ trigger: 'learning', recovered: false, event_id: $('Evaluate Recovery').first().json.event_id, decision_id: $('Evaluate Recovery').first().json.decision_id, action_id: $('Evaluate Recovery').first().json.action_id, agents: $('Evaluate Recovery').first().json.agents }) }}",
+        "options": {}
+      },
+      "id": "23c99c5c-d844-4946-84b2-3e3da028d318",
+      "name": "Trigger Learning — Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet input = raw.body || raw;\n\nif (typeof input === 'string') {\n  try { input = JSON.parse(input); } catch(e) {}\n}\n\nif (input.body && typeof input.body === 'object') {\n  input = input.body;\n}\n\nconst outcome = input.recovered === true ? 'success' : 'failure';\nreturn { json: { ...input, outcome } };"
+      },
+      "id": "1ddfc234-8c4e-41c5-bfe3-31832277288d",
+      "name": "Learning — Receive Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2576,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT agent_name, current_weight, initial_weight, total_predictions, correct_predictions FROM autoflow_agent_weights ORDER BY agent_name;",
+        "options": {}
+      },
+      "id": "a80f6e03-0889-4fc6-a265-1ebf3c57f881",
+      "name": "Fetch Current Weights",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -2384,
+        704
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "gJ51Uz7d9gFG1Tzh",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const outcome = $('Learning — Receive Outcome').first().json;\nconst isSuccess = outcome.outcome === 'success';\nconst agents = outcome.agents || {};\n\nconst LEARNING_RATE = 0.05;\nconst MIN_WEIGHT = 0.05;\nconst MAX_WEIGHT = 0.60;\n\nconst current = {};\n$('Fetch Current Weights').all().forEach(row => {\n  current[row.json.agent_name] = {\n    weight: parseFloat(row.json.current_weight),\n    initial: parseFloat(row.json.initial_weight),\n    total: parseInt(row.json.total_predictions) || 0,\n    correct: parseInt(row.json.correct_predictions) || 0\n  };\n});\n\nconst defaults = { anomaly: 0.30, risk: 0.35, sla: 0.25, context: 0.10 };\nconst updated = {};\nconst agentNames = ['anomaly', 'risk', 'sla', 'context'];\n\nagentNames.forEach(name => {\n  const agentData = agents[name] || {};\n  const c = current[name] || { weight: defaults[name], initial: defaults[name], total: 0, correct: 0 };\n\n  // High-scoring agents flagged a real problem — reward them on both success and failure\n  // (failure = wrong action chosen, not wrong detection)\n  const agentWasCorrect = (agentData.score || 0) > 0.5;\n\n  let newWeight = c.weight;\n  if (agentWasCorrect) {\n    newWeight = Math.min(c.weight * (1 + LEARNING_RATE), MAX_WEIGHT);\n  } else {\n    newWeight = Math.max(c.weight * (1 - LEARNING_RATE), MIN_WEIGHT);\n  }\n\n  updated[name] = {\n    agent_name: name,\n    old_weight: c.weight,\n    new_weight: Math.round(newWeight * 10000) / 10000,\n    was_correct: agentWasCorrect,\n    total_predictions: c.total + 1,\n    correct_predictions: c.correct + (agentWasCorrect ? 1 : 0)\n  };\n});\n\n// Normalise so weights sum to exactly 1.0\nconst total = Object.values(updated).reduce((sum, w) => sum + w.new_weight, 0);\nObject.keys(updated).forEach(k => {\n  updated[k].new_weight = Math.round((updated[k].new_weight / total) * 10000) / 10000;\n});\n\n// Fix floating point drift — always adjust risk agent\nconst sumCheck = Object.values(updated).reduce((s, w) => s + w.new_weight, 0);\nconst diff = Math.round((1.0 - sumCheck) * 10000) / 10000;\nif (Math.abs(diff) > 0) {\n  updated['risk'].new_weight = Math.round((updated['risk'].new_weight + diff) * 10000) / 10000;\n}\n\nreturn {\n  json: {\n    event_id: outcome.event_id,\n    decision_id: outcome.decision_id,\n    outcome: outcome.outcome,\n    updated_weights: updated,\n    learning_applied_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "9f5aab1f-29d4-4a99-bc6e-7f68473cd90e",
+      "name": "Calculate New Weights",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2224,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO autoflow_learning_log (event_id, decision_id, outcome, anomaly_old_weight, anomaly_new_weight, risk_old_weight, risk_new_weight, sla_old_weight, sla_new_weight, context_old_weight, context_new_weight, applied_at) VALUES ('{{ $json.event_id }}', '{{ $json.decision_id }}', '{{ $json.outcome }}', {{ $json.updated_weights.anomaly.old_weight }}, {{ $json.updated_weights.anomaly.new_weight }}, {{ $json.updated_weights.risk.old_weight }}, {{ $json.updated_weights.risk.new_weight }}, {{ $json.updated_weights.sla.old_weight }}, {{ $json.updated_weights.sla.new_weight }}, {{ $json.updated_weights.context.old_weight }}, {{ $json.updated_weights.context.new_weight }}, '{{ $json.learning_applied_at }}');\n\nUPDATE autoflow_agent_weights SET current_weight = {{ $json.updated_weights.anomaly.new_weight }}, total_predictions = {{ $json.updated_weights.anomaly.total_predictions }}, correct_predictions = {{ $json.updated_weights.anomaly.correct_predictions }}, updated_at = NOW() WHERE agent_name = 'anomaly';\n\nUPDATE autoflow_agent_weights SET current_weight = {{ $json.updated_weights.risk.new_weight }}, total_predictions = {{ $json.updated_weights.risk.total_predictions }}, correct_predictions = {{ $json.updated_weights.risk.correct_predictions }}, updated_at = NOW() WHERE agent_name = 'risk';\n\nUPDATE autoflow_agent_weights SET current_weight = {{ $json.updated_weights.sla.new_weight }}, total_predictions = {{ $json.updated_weights.sla.total_predictions }}, correct_predictions = {{ $json.updated_weights.sla.correct_predictions }}, updated_at = NOW() WHERE agent_name = 'sla';\n\nUPDATE autoflow_agent_weights SET current_weight = {{ $json.updated_weights.context.new_weight }}, total_predictions = {{ $json.updated_weights.context.total_predictions }}, correct_predictions = {{ $json.updated_weights.context.correct_predictions }}, updated_at = NOW() WHERE agent_name = 'context';",
+        "options": {}
+      },
+      "id": "7cdd39c9-8b29-43cc-8ad8-6ebfdfbefe8b",
+      "name": "Update Weights in DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -1984,
+        784
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "gJ51Uz7d9gFG1Tzh",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'learning_complete', outcome: $('Learning — Receive Outcome').first().json.outcome, weights_updated: true, new_weights: $json.updated_weights }) }}",
+        "options": {}
+      },
+      "id": "9f454d1f-3a44-45eb-923e-573fc1c19f12",
+      "name": "Learning — Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1968,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Remediate — Receive Decision').first().json;\nconst mountpoint = d.mountpoint || '/';\nconst nodeName = d.node_name || d.service_name;\nreturn {\n  json: {\n    ...d,\n    action_simulated: true,\n    simulation_note: `SIMULATED cleanup_disk: would run cleanup on node ${nodeName} mountpoint ${mountpoint}. Actions: prune unused container images, clear old logs, remove temp files.`,\n    k8s_command: `kubectl exec -n monitoring deploy/our-node-exporter -- sh -c \"docker system prune -f && journalctl --vacuum-size=100M\" # on node ${nodeName}`\n  }\n};"
+      },
+      "id": "c9311b80-0339-4491-aff0-24dae55f773b",
+      "name": "Simulate Cleanup Disk",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1712,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Remediate — Receive Decision').first().json;\nconst podName = d.pod_name || `${d.service_name}-pod`;\nconst ns = d.namespace || 'default';\nreturn {\n  json: {\n    ...d,\n    action_simulated: true,\n    simulation_note: `SIMULATED reschedule_pod: would DELETE unschedulable pod ${podName} in ${ns} and let the scheduler retry placement. If persistent, would relax nodeSelector/affinity constraints.`,\n    k8s_command: `kubectl delete pod ${podName} -n ${ns} --grace-period=0 && kubectl get events -n ${ns} --field-selector reason=FailedScheduling`\n  }\n};"
+      },
+      "id": "f039cdbc-773a-404f-b1e3-fbb20c9606b1",
+      "name": "Simulate Reschedule Pod",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1712,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Remediate — Receive Decision').first().json;\nconst nodeName = d.node_name || 'minikube';\nreturn {\n  json: {\n    ...d,\n    action_simulated: true,\n    simulation_note: `SIMULATED drain_node: would CORDON and DRAIN node ${nodeName}, evicting all pods to healthy nodes. Node marked unschedulable until disk/resource issue resolved.`,\n    k8s_command: `kubectl cordon ${nodeName} && kubectl drain ${nodeName} --ignore-daemonsets --delete-emptydir-data --grace-period=30`\n  }\n};"
+      },
+      "id": "d902a0b2-96e6-47b9-9d60-334224038ede",
+      "name": "Simulate Drain Node",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1712,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3001/action",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJuOG4td29ya2Zsb3ciLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODgzMjQ3MTgsImV4cCI6NDk0NDA4NDcxOH0.j_XztGy_zNj_DP3cPZ1aIvPlqQH19g0G9sZQCYeh_ZI"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n              action_id: $('Merge Action Paths').first().json.action_id,\n              decision_id: $('Merge Action Paths').first().json.decision_id,\n              action_type: $('Merge Action Paths').first().json.action_taken,\n              action_status: $('Merge Action Paths').first().json.action_status,\n              service_name: $('Merge Action Paths').first().json.service_name,\n              namespace: $('Merge Action Paths').first().json.namespace\n            }) }}",
+        "options": {}
+      },
+      "id": "76f8dd30-9875-4ad5-9da6-4cf96d60ab57",
+      "name": "POST Action to Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1232,
+        560
+      ],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3001/action",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJuOG4td29ya2Zsb3ciLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODgzMjQ3MTgsImV4cCI6NDk0NDA4NDcxOH0.j_XztGy_zNj_DP3cPZ1aIvPlqQH19g0G9sZQCYeh_ZI"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action_id: $json.action_id, decision_id: $json.decision_id, action_type: $json.action_taken, action_status: 'success', outcome: 'recovered', recovery_metric_value: $json.recovery_metric_value, mttr_seconds: $json.mttr_seconds }) }}",
+        "options": {}
+      },
+      "id": "7957e6f1-be00-43d2-a208-fa981e87d89e",
+      "name": "POST Success to Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -48,
+        -144
+      ],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3001/action",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJuOG4td29ya2Zsb3ciLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODgzMjQ3MTgsImV4cCI6NDk0NDA4NDcxOH0.j_XztGy_zNj_DP3cPZ1aIvPlqQH19g0G9sZQCYeh_ZI"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action_id: $json.action_id, decision_id: $json.decision_id, action_type: $json.action_taken, action_status: 'failed', outcome: 'not_recovered', recovery_metric_value: $json.recovery_metric_value }) }}",
+        "options": {}
+      },
+      "id": "00189fdc-931d-443b-b9e3-e750eb89f78a",
+      "name": "POST Failure to Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -272,
+        768
+      ],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Action Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Action Type Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action Type Router": {
+      "main": [
+        [
+          {
+            "node": "Alert — Receive Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Remediate — Receive Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Learning — Receive Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert — Receive Decision": {
+      "main": [
+        [
+          {
+            "node": "Format Alert Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Alert Email": {
+      "main": [
+        [
+          {
+            "node": "Send Alert Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Alert Email": {
+      "main": [
+        [
+          {
+            "node": "Update Status to Alerted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status to Alerted": {
+      "main": [
+        [
+          {
+            "node": "Alert — Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remediate — Receive Decision": {
+      "main": [
+        [
+          {
+            "node": "Resolve Action Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Action Type": {
+      "main": [
+        [
+          {
+            "node": "K8s Action Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "K8s Action Router": {
+      "main": [
+        [
+          {
+            "node": "Simulate Restart Pod",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simulate Scale Service",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simulate Reroute Traffic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simulate Cleanup Disk",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simulate Reschedule Pod",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simulate Drain Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate Restart Pod": {
+      "main": [
+        [
+          {
+            "node": "Merge Action Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate Scale Service": {
+      "main": [
+        [
+          {
+            "node": "Merge Action Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate Reroute Traffic": {
+      "main": [
+        [
+          {
+            "node": "Merge Action Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Action Paths": {
+      "main": [
+        [
+          {
+            "node": "Save Action to DB",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Remediate — Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Action to DB": {
+      "main": [
+        [
+          {
+            "node": "Wait 10s for Recovery",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "POST Action to Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 10s for Recovery": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Recovery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Recovery": {
+      "main": [
+        [
+          {
+            "node": "Did It Recover?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did It Recover?": {
+      "main": [
+        [
+          {
+            "node": "Save Success Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Failure Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Success Outcome": {
+      "main": [
+        [
+          {
+            "node": "Trigger Learning — Success",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "POST Success to Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Failure Outcome": {
+      "main": [
+        [
+          {
+            "node": "Format Escalation Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "POST Failure to Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Escalation Email": {
+      "main": [
+        [
+          {
+            "node": "Escalate via Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate via Email": {
+      "main": [
+        [
+          {
+            "node": "Trigger Learning — Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Learning — Receive Outcome": {
+      "main": [
+        [
+          {
+            "node": "Fetch Current Weights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Current Weights": {
+      "main": [
+        [
+          {
+            "node": "Calculate New Weights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate New Weights": {
+      "main": [
+        [
+          {
+            "node": "Update Weights in DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Weights in DB": {
+      "main": [
+        [
+          {
+            "node": "Learning — Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate Cleanup Disk": {
+      "main": [
+        [
+          {
+            "node": "Merge Action Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate Reschedule Pod": {
+      "main": [
+        [
+          {
+            "node": "Merge Action Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate Drain Node": {
+      "main": [
+        [
+          {
+            "node": "Merge Action Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9fd49c10-9c5a-4095-a891-368b2c1b8385",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "581a3afb08d377268fdeb769b1916e6791368f549561355d19c90d053e47a9ef"
+  },
+  "id": "FYyq3EUiJXKIE2cd",
+  "tags": [
+    {
+      "updatedAt": "2026-04-05T00:52:15.225Z",
+      "createdAt": "2026-04-05T00:52:15.225Z",
+      "id": "yiwlGY9mQgLHehH3",
+      "name": "autoflow-itops"
+    }
+  ]
+}
